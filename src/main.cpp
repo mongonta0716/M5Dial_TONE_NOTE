@@ -10,40 +10,14 @@
 USBHIDMouse Mouse;
 USBHIDKeyboard keyboard;
 
-#define I2C_DEV_ADDR 0x55
-
-uint32_t i = 0;
-
-void onRequest(){
-  Wire.print(i++);
-  Wire.print(" Packets.");
-  M5_LOGI("onRequest");
-}
-
-void onReceive(int len){
-  uint8_t buff[20];
-  M5_LOGI("onReceive[%d]: ", len);
-  while(Wire.available()){
-    Wire.readBytes(buff, len);
-    M5.Display.setCursor(100, 100);
-    for (int i=0; i< len; i++) { 
-      M5.Log.printf("%d", buff[i]);
-      M5.Display.printf("%c", buff[i]);
-    }
-  }
-  M5.Display.print("   ");
-  M5.Log.println();
-}
 
 
 void setup()
 {
     auto cfg = M5.config();
     M5Dial.begin(cfg, true, false);
-#if ENABLE_MOUSE
     Mouse.begin();
     USB.begin();
-#endif
     keyboard.begin();
 }
 
@@ -83,9 +57,7 @@ void loop()
         if (t.state == m5::touch_state_t::touch_end)
         {
             Serial.println("LEFT CLICK!!!");
-#if ENABLE_MOUSE
             Mouse.click(MOUSE_LEFT);
-#endif
         }
         if (t.state == m5::touch_state_t::none)
         {
@@ -106,9 +78,7 @@ void loop()
         else
         {
             Serial.println("MOVE  X:" + String(t.x) + " / " + "Y:" + String(t.y) + " / " + "DX:" + String(dx) + " / " + "DY:" + String(dy));
-#if ENABLE_MOUSE
             Mouse.move(dx * 5, dy * 5, 0, 0);
-#endif
         }
         prev_x = t.x;
         prev_y = t.y;
@@ -118,9 +88,7 @@ void loop()
     if (M5Dial.BtnA.wasPressed())
     {
         Serial.println("RIGHT CLICK");
-#if ENABLE_MOUSE
         Mouse.click(MOUSE_RIGHT);
-#endif
     }
 
     long newPosition = M5Dial.Encoder.read();
@@ -129,11 +97,6 @@ void loop()
         int8_t dw = newPosition - oldPosition;
         Serial.println("W:" + String(newPosition) + " / " + "DW:" + String(dw));
         oldPosition = newPosition;
-#if ENABLE_MOUSE
         Mouse.move(0, 0, dw, 0);
-#endif
-    }
-    if (M5Dial.BtnA.wasClicked()) {
-        key_conv1(&keyboard, Special_key::Shift, '1');
     }
 }
