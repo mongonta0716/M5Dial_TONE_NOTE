@@ -6,6 +6,7 @@
 #include <M5Unified.h>
 
 enum class Special_key {
+    None,
     Shift,
     Ctrl,
     Alt,
@@ -13,6 +14,8 @@ enum class Special_key {
     ShiftAlt,
     CtrlAlt
 };
+
+
 
 void key_conv1(USBHIDKeyboard *usb_keyboard, Special_key sp_key, uint8_t keycord) {
     switch (sp_key) {

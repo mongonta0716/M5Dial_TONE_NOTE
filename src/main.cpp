@@ -1,4 +1,5 @@
 #include <M5Dial.h>
+#include <SPIFFS.h>
 
 #include  "keyconvination.hpp"
 
@@ -10,15 +11,134 @@
 USBHIDMouse Mouse;
 USBHIDKeyboard keyboard;
 
+#include <Avatar.h>
+#include "formatString.hpp"
+
+#include <Wire.h>
+
+#define I2C_ADDR 0x55
+
+using namespace m5avatar;
+
+Avatar avatar;
+float rotation = 0.0f;
+
+int8_t layer_no = 0;
+
+enum Layer {
+  ADOBE_ILLUSTRATOR1,
+  ADOBE_ILLUSTRATOR2,
+  MUSIC,
+  LAYER_END
+};
+
+#define LSFT(kc) (KEY_LEFT_SHIFT << 8 | (kc))
+
+uint16_t keycode_layout[LAYER_END][8] = { 
+ { KEY_ESC << 8, 'v', 'a', 'b', 'p', 't', LSFT('c'), LSFT('+') },
+ { KEY_ESC << 8, 'v', 'a', 'b', 'p', 't', LSFT(HID_KEY_C), LSFT(HID_KEY_KEYPAD_ADD) },
+ { KEY_ESC << 8, 'v', 'a', 'b', 'p', 't', LSFT(HID_KEY_C), LSFT(HID_KEY_KEYPAD_ADD) },
+};
+ 
+
+
+uint16_t convertKeyCode(uint8_t keycode) {
+  uint8_t char_value;
+  switch(keycode) {
+    // TONE&NOTEからのキーコードを変換
+    case 39:
+      char_value = 0;
+      rotation = 0.0f;
+      break;
+    case 30:
+      char_value = 1;
+      rotation = 90.0f;
+      break;
+    case 31:
+      char_value = 2;
+      rotation = 180.0f;
+      break;
+    case 32:
+      char_value = 3;
+      rotation = 270.0f;
+      break;
+    case 33:
+      char_value = 4;
+      break;
+    case 34:
+      char_value = 5;
+      break;
+    case 35:
+      char_value = 6;
+      break;
+    case 36:
+      char_value = 7;
+      break;
+    case 37:
+      char_value = 8;
+      layer_no--;
+      if (layer_no < 0) layer_no = 0;
+      return layer_no;
+    case 38:
+      char_value = 9;
+      layer_no++;
+      if (layer_no >= LAYER_END) layer_no = LAYER_END - 1;
+      return layer_no;
+    default:
+      char_value = 10;
+      break;
+  }
+  uint16_t keyconvination = keycode_layout[layer_no][char_value];
+
+  if ((keyconvination >> 8) >= 0x80) {
+    keyboard.press(keyconvination >> 8);
+  }  
+  keyboard.press(keyconvination & 0x00FF);
+  keyboard.releaseAll();
+  return keyconvination;
+}
+
+void onReceive(int len){
+  uint8_t buff[20];
+  M5_LOGI("onReceive[%d]: ", len);
+  while(Wire.available()){
+    Wire.readBytes(buff, len);
+    M5.Display.setCursor(100, 100);
+    for (int i=0; i< len; i++) { 
+      M5.Log.printf("%d", buff[i]);
+      if (buff[0] == 37) {
+        rotation = rotation - 10.0f;
+      } else if (buff[0] == 38) {
+        rotation = rotation + 10.0f;
+      }
+      //avatar.setRotation(rotation);
+      //char data = convertKeyCode(buff[0]);
+      std::string s = formatString("%4x", convertKeyCode(buff[0]));
+      //avatar.setSpeechText(s.c_str());
+    }
+  }
+  M5.Log.println();
+}
 
 
 void setup()
 {
     auto cfg = M5.config();
     M5Dial.begin(cfg, true, false);
+    SPIFFS.begin();
+    M5.Display.setRotation(1);
     Mouse.begin();
     USB.begin();
     keyboard.begin();
+    //avatar.init();
+    //avatar.setPosition(0, -40);
+    M5.Display.setFileStorage(SPIFFS);
+    M5.Display.drawBmpFile("/KeyLayout1.bmp");
+    M5.Speaker.begin();
+    M5.Speaker.tone(2000, 500);
+    delay(500);
+    Wire.onReceive(onReceive);
+    Wire.begin((uint8_t)I2C_ADDR, 15, 13, 400000U);
 }
 
 long oldPosition = -999;
@@ -62,7 +182,6 @@ void loop()
         if (t.state == m5::touch_state_t::none)
         {
             touched = false;
-            M5Dial.Display.fillRect(0, 0, 240, 240, BLACK);
         }
     }
     if (touched && (prev_x != t.x || prev_y != t.y))
@@ -82,7 +201,6 @@ void loop()
         }
         prev_x = t.x;
         prev_y = t.y;
-        M5Dial.Display.drawCircle(t.x, t.y, 5, RED);
     }
 
     if (M5Dial.BtnA.wasPressed())
