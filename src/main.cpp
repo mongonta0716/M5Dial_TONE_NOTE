@@ -1,5 +1,5 @@
-#include <M5Dial.h>
 #include <SPIFFS.h>
+#include <M5Dial.h>
 
 #include  "keyconvination.hpp"
 
@@ -32,15 +32,23 @@ enum Layer {
   LAYER_END
 };
 
-#define LSFT(kc) (KEY_LEFT_SHIFT << 8 | (kc))
 
 uint16_t keycode_layout[LAYER_END][8] = { 
- { KEY_ESC << 8, 'v', 'a', 'b', 'p', 't', LSFT('c'), LSFT('+') },
- { KEY_ESC << 8, 'v', 'a', 'b', 'p', 't', LSFT(HID_KEY_C), LSFT(HID_KEY_KEYPAD_ADD) },
- { KEY_ESC << 8, 'v', 'a', 'b', 'p', 't', LSFT(HID_KEY_C), LSFT(HID_KEY_KEYPAD_ADD) },
+ { KEY_ESC, 'v', 'a', 'b', 'p', 't', SHIFT('c'), SHIFT('+') },
+ { KEY_ESC, 'v', 'a', 'b', 'p', 't', SHIFT(HID_KEY_C), SHIFT(HID_KEY_KEYPAD_ADD) },
+ { KEY_ESC, 'v', 'a', 'b', 'p', 't', SHIFT(HID_KEY_C), SHIFT(HID_KEY_KEYPAD_ADD) },
+};
+
+const char* jpgfilename[LAYER_END] = {
+  "/KeyLayout1.jpg",
+  "/KeyLayout2.jpg",
+  "/KeyLayout3.jpg",
 };
  
 
+void changeImage(int8_t layer_no) {
+  M5.Display.drawJpgFile(jpgfilename[layer_no]);
+}
 
 uint16_t convertKeyCode(uint8_t keycode) {
   uint8_t char_value;
@@ -60,8 +68,10 @@ uint16_t convertKeyCode(uint8_t keycode) {
       break;
     case 32:
       char_value = 3;
-      rotation = 270.0f;
-      break;
+      layer_no++;
+      if (layer_no >= LAYER_END) layer_no = 0;
+      changeImage(layer_no);
+      return layer_no;
     case 33:
       char_value = 4;
       break;
@@ -78,11 +88,13 @@ uint16_t convertKeyCode(uint8_t keycode) {
       char_value = 8;
       layer_no--;
       if (layer_no < 0) layer_no = 0;
+      changeImage(layer_no);
       return layer_no;
     case 38:
       char_value = 9;
       layer_no++;
       if (layer_no >= LAYER_END) layer_no = LAYER_END - 1;
+      changeImage(layer_no);
       return layer_no;
     default:
       char_value = 10;
@@ -90,11 +102,9 @@ uint16_t convertKeyCode(uint8_t keycode) {
   }
   uint16_t keyconvination = keycode_layout[layer_no][char_value];
 
-  if ((keyconvination >> 8) >= 0x80) {
-    keyboard.press(keyconvination >> 8);
-  }  
-  keyboard.press(keyconvination & 0x00FF);
-  keyboard.releaseAll();
+  key_conv(&keyboard, keyconvination);
+  //keyboard.press(keyconvination & 0x00FF);
+  //keyboard.releaseAll();
   return keyconvination;
 }
 
@@ -133,7 +143,7 @@ void setup()
     //avatar.init();
     //avatar.setPosition(0, -40);
     M5.Display.setFileStorage(SPIFFS);
-    M5.Display.drawBmpFile("/KeyLayout1.bmp");
+    changeImage(layer_no);
     M5.Speaker.begin();
     M5.Speaker.tone(2000, 500);
     delay(500);
